@@ -4,7 +4,8 @@ CREATE TABLE IF NOT EXISTS events (
     id SERIAL,
     user_id INT NOT NULL,
     event TEXT NOT NULL,
-    date TIMESTAMP NOT NULL
+    date TIMESTAMP NOT NULL,
+    mail TEXT NOT NULL,
 );
 
 -- +goose StatementEnd

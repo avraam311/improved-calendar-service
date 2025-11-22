@@ -10,6 +10,7 @@ type EventCreate struct {
 	UserID int       `json:"user_id" validate:"required"`
 	Event  string    `json:"event" validate:"required"`
 	Date   time.Time `json:"date" validate:"required"`
+	Mail   string    `json:"mail" validate:"required"`
 }
 
 type Event struct {
