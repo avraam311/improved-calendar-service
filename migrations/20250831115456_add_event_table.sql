@@ -6,6 +6,7 @@ CREATE TABLE IF NOT EXISTS events (
     event TEXT NOT NULL,
     date TIMESTAMP NOT NULL,
     mail TEXT NOT NULL,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
 -- +goose StatementEnd
