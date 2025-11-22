@@ -1,4 +1,4 @@
-package worker
+package workers
 
 import (
 	"context"
@@ -15,7 +15,7 @@ type mailI interface {
 	SendMessage(msg []byte) error
 }
 
-type Worker struct {
+type Notifier struct {
 	EventsCh chan *models.EventCreate
 	store    map[string]*models.EventCreate
 	mu       sync.Mutex
@@ -23,8 +23,8 @@ type Worker struct {
 	logger   *zap.Logger
 }
 
-func NewWorker(mailI mailI, logger *zap.Logger) *Worker {
-	return &Worker{
+func NewNotifier(mailI mailI, logger *zap.Logger) *Notifier {
+	return &Notifier{
 		EventsCh: make(chan *models.EventCreate, 100),
 		store:    make(map[string]*models.EventCreate),
 		mail:     mailI,
@@ -32,7 +32,7 @@ func NewWorker(mailI mailI, logger *zap.Logger) *Worker {
 	}
 }
 
-func (w *Worker) Run(ctx context.Context) {
+func (n *Notifier) Run(ctx context.Context) {
 	ticker := time.NewTicker(time.Minute)
 	defer ticker.Stop()
 
@@ -46,25 +46,25 @@ func (w *Worker) Run(ctx context.Context) {
 				oneHourLater := now.Add(time.Hour)
 				var toDelete []string
 
-				w.mu.Lock()
-				for key, event := range w.store {
+				n.mu.Lock()
+				for key, event := range n.store {
 					if !event.Date.Before(now) && !event.Date.After(oneHourLater) {
 						evByte, err := json.Marshal(event)
 						if err != nil {
-							w.logger.Warn("worker.go - failed to marshal event")
+							n.logger.Warn("worker.go - failed to marshal event", zap.Error(err))
 						}
-						err = w.sendToMail(evByte)
+						err = n.sendToMail(evByte)
 						if err != nil {
-							w.logger.Warn("worker.go - failed to send notification about event")
+							n.logger.Warn("worker.go - failed to send notification about event", zap.Error(err))
 						} else {
 							toDelete = append(toDelete, key)
 						}
 					}
 				}
 				for _, key := range toDelete {
-					delete(w.store, key)
+					delete(n.store, key)
 				}
-				w.mu.Unlock()
+				n.mu.Unlock()
 			}
 		}
 	}()
@@ -73,17 +73,17 @@ func (w *Worker) Run(ctx context.Context) {
 		select {
 		case <-ctx.Done():
 			return
-		case event := <-w.EventsCh:
+		case event := <-n.EventsCh:
 			key := fmt.Sprintf("%s-%s", event.Mail, event.Event)
-			w.mu.Lock()
-			w.store[key] = event
-			w.mu.Unlock()
+			n.mu.Lock()
+			n.store[key] = event
+			n.mu.Unlock()
 		}
 	}
 }
 
-func (w *Worker) sendToMail(msg []byte) error {
-	mailErr := w.mail.SendMessage(msg)
+func (n *Notifier) sendToMail(msg []byte) error {
+	mailErr := n.mail.SendMessage(msg)
 
 	if mailErr != nil {
 		return fmt.Errorf("failed to send notification to mail - %w", mailErr)

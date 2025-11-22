@@ -109,3 +109,29 @@ func (r *Repository) GetEvents(ctx context.Context, eventGet *models.EventGet) (
 
 	return events, nil
 }
+
+func (r *Repository) GetEventsToClean(ctx context.Context) ([]*models.EventToClean, error) {
+	query := `
+        SELECT id, user_id, event, date, created_at
+        FROM events
+        WHERE created_at <= now() - interval '1 month'
+        ORDER BY created_at
+    `
+
+	rows, err := r.db.Query(ctx, query)
+	if err != nil {
+		return nil, fmt.Errorf("repository/GetEventsToClean - %w", err)
+	}
+	defer rows.Close()
+
+	events := []*models.EventToClean{}
+	for rows.Next() {
+		var e models.EventToClean
+		if err := rows.Scan(&e.ID, &e.UserID, &e.Event, &e.Date, &e.CreatedAt); err != nil {
+			return nil, fmt.Errorf("repository/GetEventsToClean - %w", err)
+		}
+		events = append(events, &e)
+	}
+
+	return events, nil
+}

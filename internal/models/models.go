@@ -20,6 +20,15 @@ type Event struct {
 	Date   time.Time `json:"date" validate:"required"`
 }
 
+type EventToClean struct {
+	ID        uint      `json:"id" validate:"required"`
+	UserID    int       `json:"user_id" validate:"required"`
+	Event     string    `json:"event" validate:"required"`
+	Date      time.Time `json:"date" validate:"required"`
+	Mail      string    `json:"mail" validate:"required"`
+	CreatedAt time.Time `json:"created_at" validate:"required"`
+}
+
 type EventGetUserID struct {
 	UserID int `json:"user_id" validate:"required"`
 }
