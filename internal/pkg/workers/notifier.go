@@ -23,9 +23,9 @@ type Notifier struct {
 	logger   *zap.Logger
 }
 
-func NewNotifier(mailI mailI, logger *zap.Logger) *Notifier {
+func NewNotifier(evsCh chan *models.EventCreate, mailI mailI, logger *zap.Logger) *Notifier {
 	return &Notifier{
-		EventsCh: make(chan *models.EventCreate, 100),
+		EventsCh: evsCh,
 		store:    make(map[string]*models.EventCreate),
 		mail:     mailI,
 		logger:   logger,

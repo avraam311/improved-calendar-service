@@ -12,14 +12,14 @@ import (
 )
 
 type GetHandler struct {
-	logger       *zap.Logger
+	LogsCh       chan *models.Log
 	validator    *validator.GoValidator
 	eventService eventService
 }
 
-func NewGetHandler(l *zap.Logger, v *validator.GoValidator, s eventService) *GetHandler {
+func NewGetHandler(logsCh chan *models.Log, v *validator.GoValidator, s eventService) *GetHandler {
 	return &GetHandler{
-		logger:       l,
+		LogsCh:       logsCh,
 		eventService: s,
 		validator:    v,
 	}
@@ -27,7 +27,7 @@ func NewGetHandler(l *zap.Logger, v *validator.GoValidator, s eventService) *Get
 
 func (h *GetHandler) GetEventsForDay(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
-		h.logger.Warn("not allowed methods")
+		h.sendLog("not allowed methods", "warn", zap.String("method", r.Method))
 		h.handleError(w, http.StatusBadRequest, "only method GET allowed")
 		return
 	}
@@ -35,21 +35,21 @@ func (h *GetHandler) GetEventsForDay(w http.ResponseWriter, r *http.Request) {
 	var UserID *models.EventGetUserID
 	err := json.NewDecoder(r.Body).Decode(&UserID)
 	if err != nil {
-		h.logger.Warn("failed to decode JSON", zap.Error(err))
+		h.sendLog("failed to decode JSON", "warn", zap.Error(err))
 		h.handleError(w, http.StatusBadRequest, "invalid json")
 		return
 	}
 
 	err = h.validator.Validate(UserID)
 	if err != nil {
-		h.logger.Warn("validation error", zap.Error(err))
+		h.sendLog("validation error", "warn", zap.Error(err))
 		h.handleError(w, http.StatusBadRequest, "validation error")
 		return
 	}
 
 	dateStr := r.URL.Query().Get("date")
 	if dateStr == "" {
-		h.logger.Warn("missing date", zap.String("date", dateStr))
+		h.sendLog("missing date", "warn", zap.String("date", dateStr))
 		h.handleError(w, http.StatusBadRequest, "query string \"date\" is empty")
 		return
 	}
@@ -57,28 +57,26 @@ func (h *GetHandler) GetEventsForDay(w http.ResponseWriter, r *http.Request) {
 	layout := "2006-01-02T15:04:05Z"
 	dateFrom, err := time.Parse(layout, dateStr)
 	if err != nil {
-		h.logger.Warn("failed to parse date", zap.Error(err))
+		h.sendLog("failed to parse date", "warn", zap.Error(err))
 		h.handleError(w, http.StatusBadRequest, "invalid data in query string")
 		return
 	}
 
 	dateTo := dateFrom.Add(time.Hour * 24)
-
 	getEvent := &models.EventGet{
 		UserID:   UserID.UserID,
 		DateFrom: dateFrom,
 		DateTo:   dateTo,
 	}
 
-	var events []*models.Event
-	events, err = h.eventService.GetEvents(r.Context(), getEvent)
+	events, err := h.eventService.GetEvents(r.Context(), getEvent)
 	if err != nil {
-		h.logger.Error("failed to get events", zap.Error(err))
+		h.sendLog("failed to get events", "error", zap.Error(err))
 		h.handleError(w, http.StatusInternalServerError, "internal error")
 		return
 	}
 
-	h.logger.Info("events got", zap.Any("events", events))
+	h.sendLog("events got", "info", zap.Any("events", events))
 
 	response := map[string][]*models.Event{
 		"result": events,
@@ -88,14 +86,14 @@ func (h *GetHandler) GetEventsForDay(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusOK)
 	err = json.NewEncoder(w).Encode(response)
 	if err != nil {
-		h.logger.Error("failed to encode error response", zap.Error(err))
+		h.sendLog("failed to encode error response", "error", zap.Error(err))
 		http.Error(w, "error response encoding error", http.StatusInternalServerError)
 	}
 }
 
 func (h *GetHandler) GetEventsForWeek(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
-		h.logger.Warn("not allowed methods")
+		h.sendLog("not allowed methods", "warn", zap.String("method", r.Method))
 		h.handleError(w, http.StatusBadRequest, "only method GET allowed")
 		return
 	}
@@ -103,21 +101,21 @@ func (h *GetHandler) GetEventsForWeek(w http.ResponseWriter, r *http.Request) {
 	var UserID *models.EventGetUserID
 	err := json.NewDecoder(r.Body).Decode(&UserID)
 	if err != nil {
-		h.logger.Warn("failed to decode JSON", zap.Error(err))
+		h.sendLog("failed to decode JSON", "warn", zap.Error(err))
 		h.handleError(w, http.StatusBadRequest, "invalid json")
 		return
 	}
 
 	err = h.validator.Validate(UserID)
 	if err != nil {
-		h.logger.Warn("validation error", zap.Error(err))
+		h.sendLog("validation error", "warn", zap.Error(err))
 		h.handleError(w, http.StatusBadRequest, "validation error")
 		return
 	}
 
 	dateStr := r.URL.Query().Get("date")
 	if dateStr == "" {
-		h.logger.Warn("missing date", zap.String("date", dateStr))
+		h.sendLog("missing date", "warn", zap.String("date", dateStr))
 		h.handleError(w, http.StatusBadRequest, "query string \"date\" is empty")
 		return
 	}
@@ -125,28 +123,26 @@ func (h *GetHandler) GetEventsForWeek(w http.ResponseWriter, r *http.Request) {
 	layout := "2006-01-02T15:04:05Z"
 	dateFrom, err := time.Parse(layout, dateStr)
 	if err != nil {
-		h.logger.Warn("failed to parse date", zap.Error(err))
+		h.sendLog("failed to parse date", "warn", zap.Error(err))
 		h.handleError(w, http.StatusBadRequest, "invalid data in query string")
 		return
 	}
 
 	dateTo := dateFrom.Add(time.Hour * 24 * 7)
-
 	getEvent := &models.EventGet{
 		UserID:   UserID.UserID,
 		DateFrom: dateFrom,
 		DateTo:   dateTo,
 	}
 
-	var events []*models.Event
-	events, err = h.eventService.GetEvents(r.Context(), getEvent)
+	events, err := h.eventService.GetEvents(r.Context(), getEvent)
 	if err != nil {
-		h.logger.Error("failed to get events", zap.Error(err))
+		h.sendLog("failed to get events", "error", zap.Error(err))
 		h.handleError(w, http.StatusInternalServerError, "internal error")
 		return
 	}
 
-	h.logger.Info("events got", zap.Any("events", events))
+	h.sendLog("events got", "info", zap.Any("events", events))
 
 	response := map[string][]*models.Event{
 		"result": events,
@@ -156,14 +152,14 @@ func (h *GetHandler) GetEventsForWeek(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusOK)
 	err = json.NewEncoder(w).Encode(response)
 	if err != nil {
-		h.logger.Error("failed to encode error response", zap.Error(err))
+		h.sendLog("failed to encode error response", "error", zap.Error(err))
 		http.Error(w, "error response encoding error", http.StatusInternalServerError)
 	}
 }
 
 func (h *GetHandler) GetEventsForMonth(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
-		h.logger.Warn("not allowed methods")
+		h.sendLog("not allowed methods", "warn", zap.String("method", r.Method))
 		h.handleError(w, http.StatusBadRequest, "only method GET allowed")
 		return
 	}
@@ -171,21 +167,21 @@ func (h *GetHandler) GetEventsForMonth(w http.ResponseWriter, r *http.Request) {
 	var UserID *models.EventGetUserID
 	err := json.NewDecoder(r.Body).Decode(&UserID)
 	if err != nil {
-		h.logger.Warn("failed to decode JSON", zap.Error(err))
+		h.sendLog("failed to decode JSON", "warn", zap.Error(err))
 		h.handleError(w, http.StatusBadRequest, "invalid json")
 		return
 	}
 
 	err = h.validator.Validate(UserID)
 	if err != nil {
-		h.logger.Warn("validation error", zap.Error(err))
+		h.sendLog("validation error", "warn", zap.Error(err))
 		h.handleError(w, http.StatusBadRequest, "validation error")
 		return
 	}
 
 	dateStr := r.URL.Query().Get("date")
 	if dateStr == "" {
-		h.logger.Warn("missing date", zap.String("date", dateStr))
+		h.sendLog("missing date", "warn", zap.String("date", dateStr))
 		h.handleError(w, http.StatusBadRequest, "query string \"date\" is empty")
 		return
 	}
@@ -193,28 +189,26 @@ func (h *GetHandler) GetEventsForMonth(w http.ResponseWriter, r *http.Request) {
 	layout := "2006-01-02T15:04:05Z"
 	dateFrom, err := time.Parse(layout, dateStr)
 	if err != nil {
-		h.logger.Warn("failed to parse date", zap.Error(err))
+		h.sendLog("failed to parse date", "warn", zap.Error(err))
 		h.handleError(w, http.StatusBadRequest, "invalid data in query string")
 		return
 	}
 
 	dateTo := dateFrom.Add(time.Hour * 24 * 30)
-
 	getEvent := &models.EventGet{
 		UserID:   UserID.UserID,
 		DateFrom: dateFrom,
 		DateTo:   dateTo,
 	}
 
-	var events []*models.Event
-	events, err = h.eventService.GetEvents(r.Context(), getEvent)
+	events, err := h.eventService.GetEvents(r.Context(), getEvent)
 	if err != nil {
-		h.logger.Error("failed to get events", zap.Error(err))
+		h.sendLog("failed to get events", "error", zap.Error(err))
 		h.handleError(w, http.StatusInternalServerError, "internal error")
 		return
 	}
 
-	h.logger.Info("events got", zap.Any("events", events))
+	h.sendLog("events got", "info", zap.Any("events", events))
 
 	response := map[string][]*models.Event{
 		"result": events,
@@ -224,7 +218,7 @@ func (h *GetHandler) GetEventsForMonth(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusOK)
 	err = json.NewEncoder(w).Encode(response)
 	if err != nil {
-		h.logger.Error("failed to encode error response", zap.Error(err))
+		h.sendLog("failed to encode error response", "error", zap.Error(err))
 		http.Error(w, "error response encoding error", http.StatusInternalServerError)
 	}
 }
@@ -237,7 +231,16 @@ func (h *GetHandler) handleError(w http.ResponseWriter, code int, msg string) {
 	w.WriteHeader(code)
 	err := json.NewEncoder(w).Encode(errorResponse)
 	if err != nil {
-		h.logger.Error("failed to encode error response", zap.Error(err))
+		h.sendLog("failed to encode error response", "error", zap.Error(err))
 		http.Error(w, "error response encoding error", http.StatusInternalServerError)
 	}
+}
+
+func (h *GetHandler) sendLog(msg, level string, field zap.Field) {
+	logEntry := &models.Log{
+		Msg:   msg,
+		Level: level,
+		Field: field,
+	}
+	h.LogsCh <- logEntry
 }

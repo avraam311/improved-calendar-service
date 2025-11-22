@@ -1,6 +1,10 @@
 package models
 
-import "time"
+import (
+	"time"
+
+	"go.uber.org/zap"
+)
 
 type EventDelete struct {
 	ID uint `json:"id" validate:"required"`
@@ -37,4 +41,10 @@ type EventGet struct {
 	UserID   int       `json:"user_id" validate:"required"`
 	DateFrom time.Time `json:"date_from"`
 	DateTo   time.Time `json:"date_to"`
+}
+
+type Log struct {
+	Msg   string
+	Level string
+	Field zap.Field
 }
