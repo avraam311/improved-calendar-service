@@ -12,6 +12,7 @@ type Config struct {
 	Server   Server   `yaml:"server"`
 	Logger   Logger   `yaml:"logger"`
 	Database Database `yaml:"database"`
+	Mail     Mail     `yaml:"mail"`
 }
 
 type Server struct {
@@ -31,6 +32,14 @@ type Database struct {
 	Password string
 	Name     string
 	SSLMode  string `yaml:"sslmode"`
+}
+
+type Mail struct {
+	Host     string
+	Port     string
+	User     string
+	Password string
+	From     string
 }
 
 func (c *Config) DatabaseURL() string {
@@ -63,5 +72,10 @@ func MustLoad() *Config {
 	cfg.Database.Password = os.Getenv("DB_PASSWORD")
 	cfg.Database.Name = os.Getenv("DB_NAME")
 
+	cfg.Mail.Host = os.Getenv("SMTP_HOST")
+	cfg.Mail.Port = os.Getenv("SMTP_PORT")
+	cfg.Mail.User = os.Getenv("SMTP_USER")
+	cfg.Mail.Password = os.Getenv("SMTP_PASSWORD")
+	cfg.Mail.From = os.Getenv("SMTP_FROM")
 	return &cfg
 }
